@@ -20,6 +20,7 @@ That last line is what your loop branches on. "Returns a list" earns nothing —
 the description has to say what is *in* the list.
 """
 
+import random
 import re
 
 import config  # noqa: F401 — you'll use this in search_listings
@@ -170,6 +171,124 @@ def search_listings(
     return [item for _score, item in scored[: config.SEARCH_RESULT_LIMIT]]
 
 
+# ── suggest_outfit helpers ────────────────────────────────────────────────────
+
+def _style_signal(item: dict) -> set[str]:
+    """Lowercase colors + style_tags as one signal set, for complement scoring."""
+    colors = item.get("colors") or []
+    tags = item.get("style_tags") or []
+    return {s.lower() for s in (*colors, *tags)}
+
+
+def _complement_score(new_item: dict, candidate: dict) -> int:
+    """How much a candidate's colors/style_tags overlap with the new item's."""
+    return len(_style_signal(new_item) & _style_signal(candidate))
+
+
+def _pick_complementary_wardrobe_items(new_item: dict, wardrobe_items: list[dict]) -> dict:
+    """
+    One best-scoring wardrobe item per category other than new_item's own.
+
+    This is the structural guard against "2 bottoms" style outfits: at most
+    one candidate per category ever reaches the model, so there's never a
+    second item of the same category in context for it to combine. Ties go to
+    whichever item appears first in the wardrobe list.
+    """
+    new_category = new_item.get("category")
+    by_category: dict[str, list[dict]] = {}
+    for item in wardrobe_items:
+        category = item.get("category")
+        if not category or category == new_category:
+            continue
+        by_category.setdefault(category, []).append(item)
+
+    return {
+        category: max(candidates, key=lambda c: _complement_score(new_item, c))
+        for category, candidates in by_category.items()
+    }
+
+
+def _random_complementary_thrift_items(new_item: dict) -> dict:
+    """
+    1-2 random thrift listings for when the wardrobe is empty, so the advice
+    still names real pieces instead of staying purely abstract.
+
+    Each pick is from a different category than the new item, and from each
+    other — the same one-per-category guard as the wardrobe path, just with a
+    random choice inside each category instead of a style-scored one.
+    """
+    pool = [
+        listing
+        for listing in load_listings()
+        if listing["id"] != new_item.get("id")
+        and listing["category"] != new_item.get("category")
+    ]
+    by_category: dict[str, list[dict]] = {}
+    for listing in pool:
+        by_category.setdefault(listing["category"], []).append(listing)
+
+    categories = list(by_category.keys())
+    if not categories:
+        return {}
+
+    chosen_categories = random.sample(categories, k=min(2, len(categories)))
+    return {category: random.choice(by_category[category]) for category in chosen_categories}
+
+
+def _describe_item(item: dict) -> str:
+    name = item.get("title") or item.get("name") or "this piece"
+    colors = ", ".join(item.get("colors") or []) or "unspecified"
+    tags = ", ".join(item.get("style_tags") or []) or "unspecified"
+    return f"{name} (colors: {colors}; style: {tags})"
+
+
+_SUGGEST_SYSTEM = (
+    "You are a thrift-shopping stylist. You will be given one item someone is "
+    "considering, and a short list of specific complementary pieces, at most "
+    "one per clothing category. Write 1-2 short outfit suggestions using ONLY "
+    "the pieces listed by name — never invent a piece that wasn't given to "
+    "you, and never pair two pieces from the same category together. Be "
+    "specific and conversational, like a friend giving real styling advice, "
+    "not a product description."
+)
+
+
+def _suggest_from_pieces(new_item: dict, picks: dict, closet_framing: bool) -> str:
+    """Ask the model for 1-2 outfits combining new_item with the given picks."""
+    new_desc = _describe_item(new_item)
+    pieces_lines = "\n".join(
+        f"- [{category}] {_describe_item(item)}" for category, item in picks.items()
+    )
+    if closet_framing:
+        prompt = (
+            f"New piece they're considering:\n{new_desc}\n\n"
+            f"Pieces already in their closet that pair with it:\n{pieces_lines}\n\n"
+            "Suggest 1-2 outfits that combine the new piece with one or more "
+            "of these closet pieces. Name the specific pieces."
+        )
+    else:
+        prompt = (
+            f"New piece they're considering, for a closet that's currently "
+            f"empty:\n{new_desc}\n\n"
+            f"Other pieces from the same thrift listings that would pair well "
+            f"with it:\n{pieces_lines}\n\n"
+            "Suggest 1-2 starting outfits that combine the new piece with one "
+            "or more of these pieces. Name the specific pieces."
+        )
+    return generate(prompt, system=_SUGGEST_SYSTEM)
+
+
+def _general_styling_advice(new_item: dict) -> str:
+    """Advice for the new item alone, when there's nothing to pair it with."""
+    prompt = (
+        f"They're considering this piece and have nothing specific to pair it "
+        f"with right now:\n{_describe_item(new_item)}\n\n"
+        "Give general styling advice for it on its own: what kind of pieces "
+        "would complement it, what vibe it leans toward, how to wear it."
+    )
+    return generate(prompt, system=_SUGGEST_SYSTEM)
+
+
 # ── Tool 2: suggest_outfit ────────────────────────────────────────────────────
 
 def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
@@ -186,22 +305,43 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
 
     Returns:
         A non-empty string with outfit suggestions.
-        With an empty wardrobe, return general styling advice rather than
-        raising or returning "". Unit 4 has you trigger the empty wardrobe on
-        purpose, so decide now what it should do.
 
-    TODO:
-        1. Check whether wardrobe['items'] is empty.
-        2. If it is, ask the model for general styling ideas for this item.
-        3. If it isn't, format the wardrobe items into the prompt and ask for
-           specific combinations naming pieces the user already owns.
-        4. Return the model's response.
+    Design (no mismatched outfits, e.g. never 2 bottoms or 2 hoodies):
+        Rather than handing the model the whole wardrobe and trusting a
+        prompt instruction to keep categories straight, the candidate pieces
+        are curated in code first: at most one item per category other than
+        new_item's own category ever reaches the model. That's a structural
+        guarantee, not a hope — there's physically only one candidate per
+        category in the prompt, so the model can't combine two of the same
+        kind even if it tried.
+
+        - Non-empty wardrobe: pick the best style/color-overlap match per
+          category (_pick_complementary_wardrobe_items), ask the model to
+          combine new_item with those specific closet pieces.
+        - Empty wardrobe, or a wardrobe with nothing outside new_item's own
+          category: grab 1-2 random listings from the thrift data itself,
+          one per category, as a starting-closet idea
+          (_random_complementary_thrift_items) — still real, specific pieces,
+          not just abstract advice.
+        - Wardrobe non-empty but truly nothing to pair with it (every item is
+          the same category as new_item): fall back to general styling advice
+          for the new item alone.
 
     Test it from a terminal before you move on:
         python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[0], get_example_wardrobe()))"
     """
-    # TODO: replace this with your implementation
-    return ""
+    items = wardrobe.get("items") or []
+
+    if items:
+        picks = _pick_complementary_wardrobe_items(new_item, items)
+        if picks:
+            return _suggest_from_pieces(new_item, picks, closet_framing=True)
+        return _general_styling_advice(new_item)
+
+    picks = _random_complementary_thrift_items(new_item)
+    if picks:
+        return _suggest_from_pieces(new_item, picks, closet_framing=False)
+    return _general_styling_advice(new_item)
 
 
 # ── Tool 3: create_fit_card ───────────────────────────────────────────────────
