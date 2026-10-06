@@ -123,25 +123,44 @@ after this fit_card is built by create_fit_card() which is created using outfit_
 **One full query**
 
 ```
-$ python app.py ask '...'
+python app.py ask 'Y2k Tee size s/m less than $20'
 
+  Found:    Y2K Baby Tee — Butterfly Print — $18.0 on depop
+
+  Outfit:   Girl, you need to grab that Y2K butterfly baby tee! It is giving major nostalgic vibes and will look so good with what you already have. 
+
+Try pairing the butterfly tee with your baggy dark-wash straight-leg jeans and the chunky white sneakers for the ultimate effortless Y2K streetwear look—just cinch your waist with the brown leather belt to tie it all together. 
+
+If it gets a little chilly, throw your vintage black denim jacket right over top for that cool, mixed-wash denim moment. You'll wear this combo on repeat, I swear!
+
+  Fit card: Still obsessed with this butterfly baby tee I scored on depop. It's the ultimate piece for grounding those baggy dark-wash jeans and chunky white sneakers without looking like I tried too hard. Only $18, and honestly, it’s already earned a permanent spot in my daily rotation.
+
+3 model calls this session, 683 prompt + 212 output tokens
 ```
 
 **The three tools, tested one at a time**
 
 ```
-$ python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
-
+python -c "from tools import search_listings; print(search_listings('vintage jacket', size='M', max_price=50))"
+[{'id': 'lst_004', 'title': '90s Track Jacket — Navy/White Stripe', 'description': 'Authentic 90s track jacket with stripe detail down the sleeves. Full zip. Lightweight — great for layering.', 'category': 'outerwear', 'style_tags': ['90s', 'vintage', 'athletic', 'streetwear'], 'size': 'M', 'condition': 'excellent', 'price': 45.0, 'colors': ['navy', 'white'], 'brand': 'Champion', 'platform': 'poshmark'}, {'id': 'lst_002', 'title': 'Y2K Baby Tee — Butterfly Print', 'description': 'Super cute early 2000s baby tee with butterfly graphic. Fitted crop length. Tag says medium but fits like a small.', 'category': 'tops', 'style_tags': ['y2k', 'vintage', 'graphic tee', 'cottagecore'], 'size': 'S/M', 'condition': 'excellent', 'price': 18.0, 'colors': ['white', 'pink', 'purple'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_013', 'title': '90s Silk Slip Dress — Floral, Midi Length', 'description': 'Delicate 90s slip dress in a muted floral print. Midi length, adjustable straps. Light snag on the side seam — not visible when worn.', 'category': 'bottoms', 'style_tags': ['90s', 'vintage', 'feminine', 'floral', 'cottagecore'], 'size': 'M', 'condition': 'good', 'price': 30.0, 'colors': ['ivory', 'dusty pink', 'green'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_018', 'title': 'Vintage Linen Blazer — Cream', 'description': 'Lightweight linen blazer in cream. Relaxed fit, unstructured shoulders. Two front pockets. Could be dressed up or styled casually.', 'category': 'outerwear', 'style_tags': ['vintage', 'classic', 'linen', 'cottagecore', 'minimal'], 'size': 'M/L', 'condition': 'excellent', 'price': 38.0, 'colors': ['cream', 'off-white'], 'brand': None, 'platform': 'thredUp'}, {'id': 'lst_020', 'title': 'Henley Long Sleeve — Washed Burgundy', 'description': 'Soft washed henley in a rich burgundy. Three-button placket. Slightly shrunken/cropped fit. 100% cotton.', 'category': 'tops', 'style_tags': ['vintage', 'basics', 'earth tones', 'classic'], 'size': 'M', 'condition': 'excellent', 'price': 16.0, 'colors': ['burgundy', 'wine'], 'brand': None, 'platform': 'thredUp'}, {'id': 'lst_024', 'title': 'Vintage Polo Shirt — Forest Green', 'description': 'Classic polo in forest green. Short sleeve, ribbed collar. Slightly boxy. The kind of piece that goes with everything.', 'category': 'tops', 'style_tags': ['vintage', 'preppy', 'classic', 'earth tones'], 'size': 'M', 'condition': 'good', 'price': 18.0, 'colors': ['green', 'forest green'], 'brand': 'Ralph Lauren', 'platform': 'thredUp'}, {'id': 'lst_029', 'title': 'Silk Button-Down — Sage Green', 'description': 'Loose silk (feel) button-down in sage green. Long sleeve, can be worn open as a layer or fully buttoned. Very flowy.', 'category': 'tops', 'style_tags': ['vintage', 'minimal', 'earth tones', 'cottagecore'], 'size': 'M', 'condition': 'excellent', 'price': 28.0, 'colors': ['sage', 'green'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_030', 'title': 'Vintage Knit Vest — Argyle Brown/Cream', 'description': 'Classic argyle knit vest in brown and cream. Fits medium. V-neck. Ideal for the dark academia or preppy vintage aesthetic.', 'category': 'tops', 'style_tags': ['vintage', 'preppy', 'knitwear', 'dark academia', 'earth tones'], 'size': 'M', 'condition': 'good', 'price': 25.0, 'colors': ['brown', 'cream', 'tan'], 'brand': None, 'platform': 'thredUp'}, {'id': 'lst_038', 'title': 'Denim Vest — Medium Wash, Studded', 'description': 'Denim vest with silver stud detailing along the collar and pockets. Classic rock-inspired customization. Fits like a medium.', 'category': 'outerwear', 'style_tags': ['grunge', 'vintage', 'denim', 'customized', 'rock'], 'size': 'M', 'condition': 'good', 'price': 27.0, 'colors': ['medium blue'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_032', 'title': 'Shacket — Olive Canvas', 'description': 'Olive canvas shacket — thicker than a shirt, lighter than a jacket. Chest pockets, button-front. Great transitional layer.', 'category': 'outerwear', 'style_tags': ['earth tones', 'classic', 'layering', 'minimal'], 'size': 'M/L', 'condition': 'excellent', 'price': 33.0, 'colors': ['olive', 'green'], 'brand': None, 'platform': 'poshmark'}]
 ```
 
 ```
-$ python -c "from tools import suggest_outfit; ..."
+python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[0], get_example_wardrobe()))"
+You *have* to grab those vintage Levi's 501s! Since they're a great medium wash, you can totally lean into that effortless streetwear vibe you already love. 
 
+Here are a couple of ways to style them using what’s already in your closet:
+
+**Option 1: The Ultimate Off-Duty Look**
+Slide into the 501s and thread that brown leather belt right through the loops. Toss on the black cropped zip hoodie and anchor the whole fit with your chunky white sneakers. It's super easy, comfy, and has that cool, casual balance.
+
+**Option 2: Double Denim Downtown Vibe**
+Keep the 501s and the brown leather belt as your base, then layer up with the vintage black denim jacket over a simple tee. Finish it off with the chunky white sneakers to give it a fresh, modern kick.
 ```
 
 ```
-$ python -c "from tools import create_fit_card; ..."
-
+python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[0]))"
+Scored these vintage Levi's 501 jeans on Depop for just $38 and the wash is honestly unmatched. They sit right on the hip and give that effortless, slouchy silhouette paired with crisp white sneakers. Exactly the kind of timeless denim you live in all fall.
 ```
 
 ---
