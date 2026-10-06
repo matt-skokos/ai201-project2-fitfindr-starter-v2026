@@ -175,16 +175,16 @@ Scored these vintage Levi's 501 jeans on Depop for just $38 and the wash is hone
      instead of an empty list, so I changed it" is the level we want. -->
 
 **Moment 1**
-
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+catching a mismatch between my own draft README and the code it was supposed to describe
+- *What I asked for:* I didn't understand what "What moves through the session" (README line 105) was asking, since I didn't have the session's full flow clear yet.
+- *What came back:* Claude walked through the actual session dict in agent.py, the order fields get filled (parsed → search_results → selected_item → outfit_suggestion → fit_card), and pointed out that my Branch rule section didn't match what the code actually does, I'd written "revert to a random full-outfit suggestion" for the empty-results case, but the real behavior (and the TODO's instruction) is to set session["error"] and stop before calling suggest_outfit at all.
+- *What I changed:* Rewrote the Branch rule and session-flow sections of the README to match the code's real behavior instead of my earlier guess at it.
 
 **Moment 2**
-
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+choosing a mismatch-guard design for suggest_outfit, instead of trusting a prompt instruction
+- *What I asked for:* How to guarantee suggest_outfit never combines two items from the same category (e.g. two bottoms, two hoodies) into one outfit suggestion.
+- *What came back:* Claude gave me two real implementation options: (1) hand the model the whole wardrobe and tell it in the system prompt "never combine two of the same category," or (2) pre-select at most one wardrobe item per category in code before the model ever sees anything, so there's structurally only one candidate per category in the prompt.
+- *What I changed:* Went with option 2: the guarantee needed to hold every time, not just "whenever the model follows the instruction," and it's testable without a model call at all (you can assert the candidate dict never has two items of the same category).
 
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
