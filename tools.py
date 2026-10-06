@@ -20,9 +20,64 @@ That last line is what your loop branches on. "Returns a list" earns nothing —
 the description has to say what is *in* the list.
 """
 
+import re
+
 import config  # noqa: F401 — you'll use this in search_listings
 from generate import generate
 from utils.data_loader import load_listings
+
+
+# ── search_listings helpers ───────────────────────────────────────────────────
+
+# Minimal stopword list — just filler words that shouldn't count as a "match"
+# on their own. Style words like "vintage" or "oversized" stay in, since those
+# are real search signal here.
+_STOPWORDS = frozenset({
+    "a", "an", "and", "are", "as", "at", "be", "but", "by", "for", "if", "in",
+    "into", "is", "it", "of", "on", "or", "such", "that", "the", "their",
+    "then", "there", "these", "they", "this", "to", "was", "will", "with",
+    "looking", "want", "need",
+})
+
+_WORD_RE = re.compile(r"[a-z0-9]+")
+
+
+def _tokenize(text: str) -> set[str]:
+    """Lowercase, split into word/number tokens, drop stopwords."""
+    return {t for t in _WORD_RE.findall(text.lower()) if t not in _STOPWORDS}
+
+
+_PAREN_RE = re.compile(r"\([^)]*\)")
+_US_SPACE_RE = re.compile(r"\bUS\s+(\d)")
+
+
+def _size_tokens(raw: str) -> set[str]:
+    """
+    Normalize a size string into a set of comparable tokens.
+
+    Handles the shapes seen in the data:
+      "S/M"                    -> {"S", "M"}
+      "W30 L30"                -> {"W30", "L30"}
+      "US 8.5"                 -> {"US8.5"}          (keep unit glued to number)
+      "One Size (adjustable)"  -> {"ONESIZE"}         (parenthetical dropped)
+      "One Size / Oversized"   -> {"ONESIZE", "OVERSIZED"}
+      "XL (oversized)"         -> {"XL"}
+
+    Tokens are compared for exact equality, never substring — that's what
+    keeps "S" from matching "US8" and "L" from matching "XL".
+    """
+    if not raw:
+        return set()
+    s = raw.upper()
+    s = _PAREN_RE.sub("", s)
+    s = s.replace("ONE SIZE", "ONESIZE")
+    s = _US_SPACE_RE.sub(r"US\1", s)
+    return {p for p in re.split(r"[\s/]+", s.strip()) if p}
+
+
+def _sizes_match(query_size: str, listing_size: str) -> bool:
+    """A match is any overlap between the two normalized token sets."""
+    return bool(_size_tokens(query_size) & _size_tokens(listing_size))
 
 
 # ── Tool 1: search_listings ───────────────────────────────────────────────────
@@ -77,11 +132,42 @@ def search_listings(
 
     Test it from a terminal before you move on:
         python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
+
+    Scoring: a query token matched in `title` or `style_tags` is worth 2
+    points, a token matched only in `description` is worth 1 — each query
+    token counted once, toward whichever it matched. Title/tags are a more
+    deliberate signal of what an item actually is than body text is.
+
+    We don't load a trimmed-down projection of each listing here (just id /
+    description / size / price) even though that would save some memory at a
+    much larger scale — the title/tag weighting above needs `title` and
+    `style_tags` in memory too, and at 40 listings the full dicts
+    load_listings() already returns cost nothing to keep around.
     """
-    # TODO: replace this with your implementation
-    # Note: Do we just need the item id, description, size (optional?) and price loaded for all
-    # can we save memory that way and then just return full dict()'s of the ones that match.
-    return []
+    candidates = load_listings()
+
+    if max_price is not None:
+        candidates = [c for c in candidates if c["price"] <= max_price]
+
+    if size is not None:
+        candidates = [c for c in candidates if _sizes_match(size, c["size"])]
+
+    query_tokens = _tokenize(description)
+
+    scored = []
+    for item in candidates:
+        title_tag_tokens = _tokenize(item["title"]) | _tokenize(" ".join(item["style_tags"]))
+        desc_tokens = _tokenize(item["description"])
+
+        matched_title_tags = query_tokens & title_tag_tokens
+        matched_desc_only = (query_tokens & desc_tokens) - matched_title_tags
+
+        score = 2 * len(matched_title_tags) + len(matched_desc_only)
+        if score > 0:
+            scored.append((score, item))
+
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+    return [item for _score, item in scored[: config.SEARCH_RESULT_LIMIT]]
 
 
 # ── Tool 2: suggest_outfit ────────────────────────────────────────────────────

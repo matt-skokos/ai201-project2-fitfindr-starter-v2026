@@ -26,9 +26,6 @@ tool calls and returns a fit card — in at least 4 of 5 tries.
 
 **Why this target:**
 The loop requires that two inputs: a wardrobe and a target outfit are present to complete the process. If one or both of these are missing the tool may fail to return a non-empty result. In most cases it should fall back tot he branch that is built in but in other tests where both inputs are empty it may not.
-<!-- Why 4 of 5 and not 5 of 5? Something about your search, probably —
-     "my search is a plain keyword match and some phrasings will miss" is a
-     real answer. -->
 
 ---
 
@@ -38,65 +35,36 @@ Given a query that matches no listings, the agent stops before calling
 `suggest_outfit` and returns a message naming what to change — 5 of 5 tries.
 
 **Why this target:**
-<!-- Why is 5 of 5 reasonable here when criterion 1 isn't? What's different
-     about this path? -->
+This is important because the user is after all searching for items to buy through the thrift. This should return nothing because there's nothing to purchase. 
+
 
 ---
 
 ## 3. Something about state
-
-<!-- YOU WRITE THIS ONE.
-
-     How would you know that the item your search found is the same item the
-     next tool received? Name something countable or observable.
-
-     This is the criterion people find hardest, because state failure doesn't
-     look like state failure — it looks like a tool problem. Something that
-     compares session["selected_item"] against what actually reached
-     suggest_outfit is the shape you're after. -->
-
-
+Check that the item id that exists in each tool is the same spanning from search_results() -> selected_item() -> outfit_suggestion() 5/5 times.
 
 **Why this target:**
 
-
+The model should never swap this item that's returned at first out and it should succeed 5/5 times as it could dilute and skew results.
 
 ---
 
 ## 4. Something about the fit card
-
-<!-- YOU WRITE THIS ONE.
-
-     The fit card calls a model, so the same input can produce different words
-     each time. That's not a bug — it's the nature of the tool. So what would
-     make it acceptable?
-
-     Think about what you'd actually be unhappy to see. A caption that never
-     mentions the price? Two different items producing the same opening
-     sentence? A card longer than a caption anyone would post? Any of those can
-     be turned into a number. -->
-
-
+The fit_card that is sent into the model is accurately described and matched with complementing items from the wardrobe. This means that a queried thrift item that is in 'bottoms' does not get paired with another item in category 'bottoms'. This should succeed 4/5 times.
 
 **Why this target:**
 
-
+This is important because the recommendation would be completely unusable and 'goofy' if the model returns two pairs of pants the user can wear. 4/5 is the target becasuse sometimes there may be a mix up of items that don't "make sense" and that's also a fail.
 
 ---
 
 ## 5. Your choice
 
-<!-- YOU WRITE THIS ONE TOO.
-
-     Pick something you actually care about getting right. Speed, the empty
-     wardrobe path, what happens when the model can't be reached, whether the
-     search respects a price ceiling — anything, as long as it names a number
-     or an observable outcome. -->
-
-
+The user cannot query completely irrelevant results from the thrift store. This should fail/return a suitable message that the query is not accepted 5/5 times.
 
 **Why this target:**
 
+This is important because it shows that the tool is focused on returning results that are focused and relevant to the task. It also serves as a way to make sure the model is not prompt hijacked. 5/5 is important for this.
 
 
 ---
