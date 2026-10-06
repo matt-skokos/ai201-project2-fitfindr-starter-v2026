@@ -91,24 +91,25 @@ When nothing comes back, revert to the strategy above: make some suggestions fro
 
 ## Planning Loop
 
-<!-- Your branch rule, stated as a rule — the condition AND both paths — plus
-     the file and function that holds it.
-
-     Like this:
-       "If search_listings returns an empty list, put a message in the session
-        and stop. Otherwise take the first result and go to suggest_outfit."
-        — agent.py::run_agent
-
-     The grader checks your code against what you claim here, so the file and
-     function have to be real. -->
 
 **Branch rule:**
+The rule will be that:
+ if empty list : return a random suggestion for a full outfit to purchase from the thrift collection and note that there was nothing to combine with from their own collection
+ if the list is non-empty: send the result to 
 
 **Where it lives:** `agent.py::run_agent`
-
-**How the query is parsed:** <!-- regex, string splitting, or asking the model — say which -->
-
+The rule will be executed in the agent.py file during the loop run_agent() so:
+agent.py::run_agent
+**How the query is parsed:** 
+To keep it simple I'll use regex parsing: return a JSON object {description: string, max_price: float, size: string }
 **What moves through the session:** <!-- which fields, in what order -->
+The query is passed in to the loop along with a persons empty or non-empty user wardrrobe at initialization of the session.
+parsed will take these values and insert them into description, size and max_price in the JSON
+search results will be a list that's returned from the listings query
+the branch then occurs once this prompt return comes back from the model
+selected_item becomes the first search result 
+selected_item and wardrobe are then passed into suggest_outfit() and an outfit_suggestion is returned
+after this fit_card is built by create_fit_card() which is created using outfit_suggestion and selected_item
 
 ---
 
