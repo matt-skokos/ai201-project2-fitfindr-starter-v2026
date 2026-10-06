@@ -25,6 +25,7 @@ Given a query that matches at least one listing, the agent completes all three
 tool calls and returns a fit card — in at least 4 of 5 tries.
 
 **Why this target:**
+The loop requires that two inputs: a wardrobe and a target outfit are present to complete the process. If one or both of these are missing the tool may fail to return a non-empty result. In most cases it should fall back tot he branch that is built in but in other tests where both inputs are empty it may not.
 <!-- Why 4 of 5 and not 5 of 5? Something about your search, probably —
      "my search is a plain keyword match and some phrasings will miss" is a
      real answer. -->
