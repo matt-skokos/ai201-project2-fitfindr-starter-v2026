@@ -344,6 +344,24 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
     return _general_styling_advice(new_item)
 
 
+def _format_price(price) -> str:
+    """$38 for a whole-dollar price, $38.50 if it's ever fractional."""
+    if price is None:
+        return "an unlisted price"
+    price = float(price)
+    return f"${int(price)}" if price.is_integer() else f"${price:.2f}"
+
+
+_FIT_CARD_SYSTEM = (
+    "You write short social-media captions for secondhand clothing finds — "
+    "the kind someone would actually post next to a photo of the item. Write "
+    "2 to 4 sentences. Mention the item once, its price once, and the "
+    "platform it's from once — never repeat any of those three. Be specific "
+    "about the vibe and how it fits into the outfit, not a product "
+    "description. Sound like a real person posting, not an ad."
+)
+
+
 # ── Tool 3: create_fit_card ───────────────────────────────────────────────────
 
 def create_fit_card(outfit: str, new_item: dict) -> str:
@@ -372,6 +390,11 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
         • CACHE_ENABLED — the adapter handed back an answer it already had
         • TEMPERATURE   — at 0.0 the model gives the same words every time
 
+    Neither is touched here — config.TEMPERATURE is already 0.9 (chosen with
+    this tool in mind), and generate() already falls back to it. Passing a
+    temperature or cache override from inside this function would just fight
+    the one-place-to-change-it design of config.py.
+
     TODO:
         1. Guard against an empty or whitespace-only `outfit`.
         2. Build a prompt with the item details and the outfit.
@@ -380,5 +403,14 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
     Test it from a terminal before you move on:
         python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[0]))"
     """
-    # TODO: replace this with your implementation
-    return ""
+    if not outfit or not outfit.strip():
+        title = new_item.get("title") or "this item"
+        return f"No caption yet — there's no outfit to build one around for {title}."
+
+    prompt = (
+        f"The item: {_describe_item(new_item)}, priced at "
+        f"{_format_price(new_item.get('price'))} on {new_item.get('platform')}.\n\n"
+        f"The outfit idea for it:\n{outfit}\n\n"
+        "Write the caption now."
+    )
+    return generate(prompt, system=_FIT_CARD_SYSTEM)
